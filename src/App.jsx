@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
+import "bootstrap-icons/font/bootstrap-icons.css"
 
 // Acá está el swagger de la aplicación: 
 // https://apiproducts-r8d0.onrender.com/swagger-ui/index.html#/
@@ -11,6 +12,12 @@ function App() {
   const [amount, setAmount] = useState('')
   const [articleToDelete, setArticleToDelete] = useState(null)
   const [showModal, setShowModal] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [currentArticle, setCurrentArticle] = useState({
+    id: null,
+    name: '',
+    amount: ''
+  })
 
   const fetchArticles = async () => {
     try {
@@ -95,6 +102,63 @@ function App() {
     setArticleToDelete(null)
   }
 
+  const handleCancelEdit = () => {
+    setShowEditModal(false)
+    setCurrentArticle({
+      id: null,
+      name: '',
+      amount: ''
+    })
+  }
+
+  const handleEditClick = (article) => {
+    setCurrentArticle({
+      id: article.id,
+      name: article.name,
+      amount: article.amount.toString()
+    })
+    setShowEditModal(true)
+  }
+
+  const handleEditInputChange = (e) => {
+    console.log(e.target.name, e.target.value)
+    const {name, value} = e.target
+    setCurrentArticle(prev => ({...prev, [name]: value}))
+  }
+
+  const handleSubmitEdit = async (e) => {
+    e.preventDefault()
+    console.log('edit article')
+    if (!currentArticle.name.trim() || !currentArticle.amount.trim()) {
+      return alert('Todos los cambos son obligatorios.')
+    }
+
+    const parseAmount = parseFloat(currentArticle.amount)
+    if (isNaN(parseAmount)) {
+      return alert('El monto debe ser un número válido.')
+    }
+
+    try {
+      let response = await fetch(`${API_URL}/api/products/${currentArticle.id}`,{
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: currentArticle.name,
+          amount: parseAmount
+        })
+      })
+      console.log('update response: ', response, response.ok)
+      if (response.ok) {
+        fetchArticles()
+        setShowEditModal(false)
+        alert('Artículo actualizado correctamente.')
+      }
+    } catch (error) {
+      console.error('Error al actualizar:', error);
+      alert('Error al actualizar el artículo');
+    }
+  }
+
   return (
     <>
       <h1>ABM Articulos</h1>
@@ -130,7 +194,12 @@ function App() {
               <td>{art.name}</td>
               <td>{art.amount}</td>
               <td>
-                <button onClick={()=> handleDeleteArticle(art)}>Eliminar</button>
+                <button onClick={() => handleEditClick(art)}>
+                  <i className='bi bi-pencil'></i>
+                </button>
+                <button onClick={()=> handleDeleteArticle(art)}>
+                  <i className='bi bi-trash'></i>
+                </button>
               </td>
             </tr>
           )))
@@ -150,6 +219,28 @@ function App() {
             <p>¿Estás seguro de que deseas eliminar el artículo "{articleToDelete?.name}"?</p>
             <button onClick={handleConfirmDelete}>Eliminar</button>
             <button onClick={handleCancelDelete}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && (
+        <div className='modal'>
+          <div className='modal-content'>
+            <h2>Modificar Articulo</h2>
+            <form action="" onSubmit={handleSubmitEdit}>
+              <div>
+                <label htmlFor="">Nombre: </label>
+                <input type="text" name='name' value={currentArticle.name} onChange={handleEditInputChange} required/>
+              </div>
+              <div>
+                <label htmlFor="">Monto: </label>
+                <input type="text" name='amount' value={currentArticle.amount} onChange={handleEditInputChange} required/>
+              </div>
+              <div>
+                <button onClick={handleCancelEdit}><i className='bi bi-x'></i>Cancelar</button>
+                <button><i className='bi bi-check'></i>Modificar</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
